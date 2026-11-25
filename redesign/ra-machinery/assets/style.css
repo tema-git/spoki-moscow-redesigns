@@ -92,6 +92,8 @@ a:is(:hover,:focus-visible) .arrow,button:is(:hover,:focus-visible) .arrow { tra
 .feature-grid,.project-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:clamp(14px,1.8vw,26px) }
 .feature-card { display:block; border-bottom:1px solid #aab29f; position:relative; padding-bottom:20px; min-width:0 }
 .feature-photo,.project-frame { overflow:hidden; position:relative; background:#dddcd1; aspect-ratio:2.1 }
+.feature-photo {aspect-ratio:1.72}
+.feature-card:first-child .feature-photo img {object-position:right center}
 .feature-photo img,.project-frame img { object-fit:cover; width:100%; height:100%; transition:transform .33s ease-out,filter .24s; transform:scale(1.045) translate(var(--px,0px),var(--py,0px)); filter:saturate(.91) }
 .feature-card:hover .feature-photo img,.project:hover img,.feature-card:focus-visible .feature-photo img,.project:focus-visible img { transform:scale(1.09) translate(var(--px,0px),var(--py,0px)); filter:saturate(1.09) }
 .feature-copy { position:relative; padding-top:17px; padding-right:40px }
