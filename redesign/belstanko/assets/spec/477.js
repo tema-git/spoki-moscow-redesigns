@@ -1,0 +1,1 @@
+window.BS_SPECS=window.BS_SPECS||{};window.BS_SPECS["477"]={"purpose":"Предназначен для ограждения шлифовального круга.","spec":[]};

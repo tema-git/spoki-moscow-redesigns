@@ -1,0 +1,1 @@
+window.BS_SPECS=window.BS_SPECS||{};window.BS_SPECS["478"]={"purpose":"Предназначена для крепления шлифовальных кругов на станке ВЗ-319.","spec":[]};

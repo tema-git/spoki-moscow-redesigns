@@ -1,0 +1,1 @@
+window.BS_SPECS=window.BS_SPECS||{};window.BS_SPECS["537"]={"purpose":"Приспособления для балансировки и правки шлифовального круга.","spec":[]};
