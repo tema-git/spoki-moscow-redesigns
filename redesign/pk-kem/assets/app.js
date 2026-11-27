@@ -28,33 +28,61 @@
   document.addEventListener('focusin', e => {
     if (menu.classList.contains('open') && !e.target.closest('.site-header')) closeMenu();
   });
-  const hero = $('.hero'), art = $('.art-stage'), process = $('.process-art');
+  const hero = $('.hero'), art = $('.art-stage'), process = $('.binding-track');
+  const layout = $('.binding-layout'), steps = all('.binding-steps li');
+  const heroDrawing = art && window.KemBookModel.bind($('.book-art',art));
+  const bindingDrawing = process && window.KemBookModel.bind($('.process-art .binding-art',process));
   const active = new Set();
-  let scrollFrame = 0;
+  let scrollFrame = 0, cameraX = 0, cameraY = 0, shownX = 0, shownY = 0, currentPhase = -1;
+  const bound = n => Math.min(1,Math.max(0,n));
   function drawScroll() {
     scrollFrame = 0;
-    if (motion.matches) return;
+    if (motion.matches) {
+      heroDrawing?.(0,0,0);
+      bindingDrawing?.(.52,0,0);
+      steps.forEach(el=>el.removeAttribute('aria-current'));
+      currentPhase = -1;
+      return;
+    }
     if (hero && active.has(hero)) {
       const rect = hero.getBoundingClientRect();
-      art.style.setProperty('--scroll', Math.min(1, Math.max(0, (70 - rect.top) / (rect.height * .71))));
+      const progress = bound(-rect.top / Math.max(1,rect.height * .76));
+      shownX += (cameraX-shownX)*.32;
+      shownY += (cameraY-shownY)*.32;
+      if(Math.abs(cameraX-shownX)<.002) shownX=cameraX;
+      if(Math.abs(cameraY-shownY)<.002) shownY=cameraY;
+      heroDrawing(progress,shownX,shownY);
+      if(shownX!==cameraX || shownY!==cameraY) queueScroll();
     }
     if (process && active.has(process)) {
       const rect = process.getBoundingClientRect();
-      const val = (innerHeight - rect.top) / (innerHeight * .75 + rect.height * .25);
-      process.style.setProperty('--prog', Math.min(1, Math.max(0, val)));
+      const start = innerHeight * .88;
+      const pinTop = parseFloat(getComputedStyle(layout).top);
+      const travel = Math.max(1,rect.height-layout.offsetHeight);
+      const progress = rect.top >= pinTop
+        ? .20 * bound((start-rect.top)/Math.max(1,start-pinTop))
+        : .20 + .80 * bound((pinTop-rect.top)/travel);
+      bindingDrawing(progress);
+      process.style.setProperty('--prog',progress.toFixed(5));
+      const next = progress < .34 ? 0 : progress < .67 ? 1 : 2;
+      if (currentPhase!==next) {
+        steps.forEach((el,index)=>{if(index===next)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');});
+        currentPhase=next;
+      }
     }
   }
-  function queueScroll() { if (!scrollFrame && active.size && !motion.matches) scrollFrame = requestAnimationFrame(drawScroll); }
-  const observer = new IntersectionObserver(records => {
+  function queueScroll() { if (!scrollFrame && active.size) scrollFrame=requestAnimationFrame(drawScroll); }
+  const observer=new IntersectionObserver(records=>{
     for (const record of records) {
-      if (record.isIntersecting) active.add(record.target);
+      if(record.isIntersecting) active.add(record.target);
       else active.delete(record.target);
     }
     queueScroll();
-  },{rootMargin:'90px'});
-  [hero,process].filter(Boolean).forEach(el => observer.observe(el));
-  addEventListener('scroll', queueScroll, {passive:true}); addEventListener('resize', queueScroll);
-  motion.addEventListener('change', queueScroll);
+  },{rootMargin:'100px'});
+  [hero,process].filter(Boolean).forEach(el=>observer.observe(el));
+  addEventListener('scroll',queueScroll,{passive:true});
+  addEventListener('resize',queueScroll);
+  motion.addEventListener('change',drawScroll);
   function point(e, el) {
     const r = el.getBoundingClientRect();
     return [Math.max(-1,Math.min(1,2*(e.clientX-r.left)/r.width-1)),Math.max(-1,Math.min(1,2*(e.clientY-r.top)/r.height-1))];
@@ -70,7 +98,7 @@
     if(current){const [x,y]=point(e,current);setCard(current,x,y);}
     lastCard=current;
     if (art && e.target.closest('.hero')) {
-      const [x,y]=point(e,art);art.style.setProperty('--px',x);art.style.setProperty('--py',y);
+      [cameraX,cameraY]=point(e,art);queueScroll();
     }
     const contact=e.target.closest('.contact-hit');
     if(contact){const [x,y]=point(e,contact);contact.style.setProperty('--magx',x*3+'px');contact.style.setProperty('--magy',y*3+'px');}
@@ -79,7 +107,7 @@
     if(!pointer.matches || motion.matches)return;
     pxEvent=e;if(!pointerFrame)pointerFrame=requestAnimationFrame(move);
   },{passive:true});
-  hero?.addEventListener('pointerleave',()=>{art.style.setProperty('--px',0);art.style.setProperty('--py',0);});
+  hero?.addEventListener('pointerleave',()=>{cameraX=0;cameraY=0;queueScroll();});
   $('.contact-hit').addEventListener('pointerleave',e=>{e.currentTarget.style.setProperty('--magx','0px');e.currentTarget.style.setProperty('--magy','0px');});
   const filter=$('#catalog-filter');
   if(filter) {
@@ -114,7 +142,7 @@
     dialog.addEventListener('keydown',e=>{
       if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();show(index+(e.key==='ArrowRight'?1:-1));}
     });
-    dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();}});
+    dialog.addEventListener('click',e=>{if(e.target===dialog || e.target.classList.contains('pop-body'))dialog.close();});
     $('.pop-body',dialog).addEventListener('touchstart',e=>{startTouch=e.touches.length===1?[e.touches[0].clientX,e.touches[0].clientY]:null;},{passive:true});
     $('.pop-body',dialog).addEventListener('touchend',e=>{
       if(!startTouch)return;const t=e.changedTouches[0], dx=t.clientX-startTouch[0],dy=t.clientY-startTouch[1];startTouch=null;
