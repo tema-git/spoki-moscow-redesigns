@@ -28,7 +28,7 @@
   document.addEventListener('focusin', event => {
     if (!mobileNav.hidden && !mobileNav.contains(event.target) && !one('.site-header').contains(event.target)) closeNav();
   });
-  matchMedia('(min-width: 776px)').addEventListener('change', () => closeNav());
+  matchMedia('(min-width: 951px)').addEventListener('change', () => closeNav());
 
   // Use the full-size original in a single, keyboard- and touch-operable viewer.
   const lightbox = one('#lightbox');
@@ -64,9 +64,7 @@
   one('[data-prev]').addEventListener('click', () => step(-1));
   one('[data-next]').addEventListener('click', () => step(1));
   lightbox.addEventListener('click', event => {
-    if (event.target !== lightbox) return;
-    const r = lightbox.getBoundingClientRect();
-    if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) lightbox.close();
+    if (event.target === lightbox || event.target.matches('.viewer,.viewer-image,.view-top')) lightbox.close();
   });
   lightbox.addEventListener('keydown', event => {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
@@ -75,6 +73,7 @@
     }
   });
   lightbox.addEventListener('close', () => {
+    if(lightbox.open)return;
     fullPhoto.removeAttribute('src');
     opener?.focus({preventScroll:true});
   });
@@ -246,6 +245,7 @@
   // Pointer input changes decorative layers while hit targets and text stay fixed.
   const hero=one('#hero'), stage=one('#piano-stage'), mechanism=one('.mechanism-visual');
   const magnet=one('.contact-magnet');
+  let turn=0, tilt=0, touchStart=null;
   let pending, frame=0, last;
   function clearPointer(el) {
     if(!el)return;
@@ -258,7 +258,12 @@
     const r=el.getBoundingClientRect();
     const x=clamp((clientX-r.left)/r.width*2-1,-1,1),y=clamp((clientY-r.top)/r.height*2-1,-1,1);
     if(el===hero){
-      for(const [key,val] of Object.entries({'--px':x*13+'px','--py':y*6+'px','--rx':-y*6+'deg','--ry':x*10+'deg','--shine-x':(50+x*32)+'%','--shine-y':(45+y*29)+'%'}))stage.style.setProperty(key,val);
+      const area=stage.getBoundingClientRect();
+      turn=clamp((clientX-area.left)/area.width*2-1,-1,1);
+      tilt=clamp((clientY-area.top)/area.height*2-1,-1,1);
+      stage.style.setProperty('--shine-x',(50+turn*32)+'%');
+      stage.style.setProperty('--shine-y',(45+tilt*29)+'%');
+      queueScroll();
     }else if(el===magnet){
       el.style.setProperty('--mx',x*3+'px');el.style.setProperty('--my',y*2+'px');
     }else{
@@ -266,7 +271,11 @@
       el.style.setProperty('--gleam',(50+42*x)+'%');
     }
   }
-  function clearLast() {clearPointer(last===hero?stage:last);last=null;pending=null;}
+  function clearLast() {
+    clearPointer(last===hero?stage:last);
+    if(last && last===hero){turn=0;tilt=0;queueScroll();}
+    last=null;pending=null;
+  }
   document.addEventListener('pointermove',e=>{
     if(!fine.matches||reduced.matches||e.pointerType==='touch')return;
     const el=e.target.closest('.contact-magnet,[data-pointer],.hero');
@@ -277,33 +286,116 @@
   },{passive:true});
   document.addEventListener('pointerout',e=>{if(!e.relatedTarget)clearLast();},{passive:true});
   if(!hero)return;
-  const lid=one('#grand-lid'), stayLines=all('#grand-stay path'), pieces=['.part-key','.part-hammer','.part-string'].map(s=>one(s));
-  let scrollFrame=0, heroIn=true, partsIn=true;
-  function drawScroll(){
-    scrollFrame=0;
-    if(heroIn){
-      const r=hero.getBoundingClientRect(),motion=reduced.matches?0:clamp((one('.site-header').offsetHeight-r.top)/r.height,0,1);
-      const theta=(82+14*motion)*Math.PI/180, c=Math.cos(theta),s=Math.sin(theta);
-      lid.setAttribute('transform','matrix('+[1.27*c,.235*c-.83*s,.73,-.7,49,467-.83*154].join(' ')+')');
-      const start=[49+1.27*289+.73*128,467+.235*289-.70*128-.83*148];
-      const end=[49+1.27*240*c+.73*155,467+.235*240*c-.70*155-.83*(154+240*s)];
-      stayLines.forEach(line=>line.setAttribute('d','M'+start.join(' ')+'L'+end.join(' ')));
-    }
-    if(partsIn){
-      const rect=mechanism.getBoundingClientRect();
-      const progress=reduced.matches?0.64:clamp((innerHeight-rect.top)/(innerHeight*.74+rect.height*.4),0,1);
-      pieces[0].style.transform='translate('+((1-progress)*-30)+'px,'+((1-progress)*12)+'px) rotate('+(progress*-4)+'deg)';
-      pieces[1].style.transform='translate('+((1-progress)*24)+'px,'+((1-progress)*22)+'px) rotate('+((1-progress)*16-progress*5)+'deg)';
-      pieces[2].style.transform='translateY('+((1-progress)*-27)+'px)';
+  const svg=one('.piano-art',stage);
+  const paintGrand=window.createGrandPiano(svg);
+  const scene=one('#mechanism'), panel=one('.mechanism-stick',scene), header=one('.site-header');
+  const key=one('.part-key',scene), jack=one('.part-jack',scene), hammer=one('.part-hammer',scene);
+  const damper=one('.part-damper',scene), strings=all('.part-string path',scene), steps=all('.action-steps li',scene);
+  let scrollFrame=0, heroIn=true, sceneIn=true, lastGrand='', lastAction=-1;
+  function cameraSemantics(){
+    stage.tabIndex=reduced.matches?-1:0;
+    stage.setAttribute('role',reduced.matches?'img':'slider');
+    stage.setAttribute('aria-label',reduced.matches?'Эскиз рояля Blutner 230':'Ракурс рояля Blutner 230');
+    if(reduced.matches){
+      ['aria-valuenow','aria-valuemin','aria-valuemax','aria-valuetext'].forEach(n=>stage.removeAttribute(n));
+    }else{
+      stage.setAttribute('aria-valuemin','-17');stage.setAttribute('aria-valuemax','17');
     }
   }
-  function queueScroll(){if(!scrollFrame && (heroIn||partsIn))scrollFrame=requestAnimationFrame(drawScroll);}
-  const observer=new IntersectionObserver(entries=>{
-    entries.forEach(e=>{if(e.target===hero)heroIn=e.isIntersecting;else partsIn=e.isIntersecting;});
+  stage.addEventListener('keydown',event=>{
+    if(reduced.matches||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
+    event.preventDefault();
+    const direction=['ArrowRight','ArrowUp'].includes(event.key)?1:-1;
+    turn=event.key==='Home'?-1:event.key==='End'?1:clamp(turn+direction*.25,-1,1);
     queueScroll();
-  },{rootMargin:'65px 0px'});
-  observer.observe(hero);observer.observe(mechanism);
-  drawScroll();
-  addEventListener('scroll',queueScroll,{passive:true});addEventListener('resize',queueScroll);
-  reduced.addEventListener('change',()=>{clearLast();queueScroll();});
+  });
+  stage.addEventListener('pointerdown',e=>{
+    if(e.pointerType==='touch'&&!reduced.matches)touchStart={id:e.pointerId,x:e.clientX,y:e.clientY,turn};
+  },{passive:true});
+  stage.addEventListener('pointermove',e=>{
+    if(!touchStart||e.pointerId!==touchStart.id||reduced.matches)return;
+    const dx=e.clientX-touchStart.x,dy=e.clientY-touchStart.y;
+    if(Math.abs(dx)<8 || Math.abs(dx)<Math.abs(dy))return;
+    turn=clamp(touchStart.turn+dx/110,-1,1);
+    queueScroll();
+  },{passive:true});
+  function endDrag(){touchStart=null;}
+  stage.addEventListener('pointerup',endDrag);stage.addEventListener('pointercancel',endDrag);
+  const smooth=(a,b,p)=>{
+    const t=clamp((p-a)/(b-a),0,1);
+    return t*t*(3-2*t);
+  };
+  function paintAction(p) {
+    if(p===lastAction)return;
+    lastAction=p;
+    const press=smooth(.02,.40,p)*(1-smooth(.74,.98,p));
+    const flight=smooth(.13,.43,p)*(1-.77*smooth(.43,.55,p))*(1-smooth(.72,.91,p));
+    const lift=smooth(.09,.34,p)*(1-smooth(.76,.95,p));
+    key.setAttribute('transform','rotate('+(-7*press).toFixed(2)+' 228 191)');
+    jack.setAttribute('transform','translate(0 '+(-10*press).toFixed(2)+') rotate('+(-5.4*press).toFixed(2)+' 277 177)');
+    hammer.setAttribute('transform','rotate('+(-15.2*flight).toFixed(2)+' 323 188)');
+    damper.setAttribute('transform','translate(0 '+(-21*lift).toFixed(2)+')');
+    const time=clamp((p-.43)/.5,0,1);
+    const vibration=10*Math.sin(time*Math.PI*8)*(1-time)*smooth(0,.055,time);
+    strings.forEach((string,i)=>{
+      const y=72+i*4, a=vibration*(1-i*.12);
+      string.setAttribute('d','M95 '+y+'C200 '+(y+a).toFixed(2)+' 237 '+(y+a*1.35).toFixed(2)+' 327 '+y+'S474 '+(y-a*1.3).toFixed(2)+' 563 '+y);
+    });
+    const current=p<.36?0:p<.76?1:2;
+    steps.forEach((step,i)=>{
+      if(i===current&&!reduced.matches)step.setAttribute('aria-current','step');
+      else step.removeAttribute('aria-current');
+    });
+    scene.dataset.phase=String(current+1);
+    scene.dataset.progress=p.toFixed(4);
+  }
+  function drawScroll(){
+    scrollFrame=0;
+    const headerHeight=header.offsetHeight;
+    if(heroIn){
+      const box=hero.getBoundingClientRect();
+      const travel=reduced.matches?0:clamp((headerHeight-box.top)/(box.height*.70),0,1);
+      const x=reduced.matches?0:turn, y=reduced.matches?0:tilt;
+      const signature=[x,y,travel].map(v=>v.toFixed(4)).join(',');
+      if(signature!==lastGrand){
+        paintGrand(x,y,travel);
+        lastGrand=signature;
+      }
+      if(!reduced.matches){
+        const degrees=Math.round(x*17);
+        stage.setAttribute('aria-valuenow',String(degrees));
+        stage.setAttribute('aria-valuetext',degrees===0?'Исходный ракурс':Math.abs(degrees)+'° '+(degrees>0?'вправо':'влево'));
+      }
+    }
+    if(sceneIn || reduced.matches){
+      const bounds=scene.getBoundingClientRect(), viewport=innerHeight;
+      let progress;
+      if(reduced.matches)progress=.43;
+      else if(scene.classList.contains('scrub')){
+        progress=bounds.top>headerHeight
+          ? .18*clamp((viewport-bounds.top)/Math.max(1,viewport-headerHeight),0,1)
+          : .18+.82*clamp((headerHeight-bounds.top)/Math.max(1,bounds.height-panel.offsetHeight),0,1);
+      }else{
+        const figure=mechanism.getBoundingClientRect();
+        progress=clamp((viewport-figure.top-figure.height*.45)/Math.max(1,viewport-headerHeight-figure.height*.45),0,1);
+      }
+      paintAction(Math.round(progress*10000)/10000);
+    }
+  }
+  function queueScroll(){if(!scrollFrame&&(heroIn||sceneIn||reduced.matches))scrollFrame=requestAnimationFrame(drawScroll);}
+  function measureScene(){
+    const style=getComputedStyle(panel);
+    const naturalHeight=panel.firstElementChild.offsetHeight+parseFloat(style.paddingTop)+parseFloat(style.paddingBottom);
+    scene.classList.toggle('scrub',!reduced.matches && naturalHeight <= innerHeight-header.offsetHeight-8);
+    queueScroll();
+  }
+  const observer=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{if(e.target===hero)heroIn=e.isIntersecting;else sceneIn=e.isIntersecting;});
+    queueScroll();
+  },{rootMargin:'100px 0px'});
+  observer.observe(hero);observer.observe(scene);
+  new ResizeObserver(measureScene).observe(panel);
+  cameraSemantics();measureScene();drawScroll();
+  addEventListener('scroll',queueScroll,{passive:true});addEventListener('resize',measureScene);
+  reduced.addEventListener('change',()=>{clearLast();lastAction=-1;lastGrand='';turn=tilt=0;cameraSemantics();measureScene();});
 })();

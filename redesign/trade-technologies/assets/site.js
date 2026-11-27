@@ -137,7 +137,7 @@
   document.addEventListener('click',e=>{if(nav.classList.contains('open')&&!e.target.closest('.mast'))closeMenu();});
   document.addEventListener('focusin',e=>{if(nav.classList.contains('open')&&!e.target.closest('.mast'))closeMenu();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&nav.classList.contains('open'))closeMenu(true);});
-  matchMedia('(min-width:1021px)').addEventListener('change',()=>closeMenu());
+  matchMedia('(min-width:1191px)').addEventListener('change',()=>closeMenu());
 
   const search=$('#find-product');
   if(search){
@@ -163,6 +163,8 @@
     const photographs=all('[data-model-photo]',detail);
     if(photographs.length){
       photographs.forEach(pic=>{pic.hidden=Number(pic.dataset.modelPhoto)!==v;});
+      const current=photographs[v];
+      current.parentElement.style.setProperty('--photo-ratio',current.style.getPropertyValue('--photo-ratio'));
       const caption=$('.variant-caption',detail);
       caption.textContent=[products.get(id).brand,products.get(id).variants[v][0]].join(' ');
     }
@@ -330,12 +332,14 @@
     const dialog=node('dialog',null,'lightbox'),bar=node('div',null,'lightbox-head'),caption=node('p');
     caption.id='lightbox-caption';dialog.setAttribute('aria-labelledby',caption.id);
     const close=node('button',null,'zoom-close');close.type='button';close.setAttribute('aria-label','Закрыть изображение');close.append(symbol('close'));bar.append(caption,close);
-    const photo=node('img'),controls=node('div',null,'lightbox-controls');
+    const stage=node('div',null,'lightbox-stage'),photo=node('img'),controls=node('div',null,'lightbox-controls');
     const prev=node('button','Предыдущее'),next=node('button','Следующее'),counter=node('span');counter.setAttribute('aria-live','polite');
     controls.append(prev,counter,next);if(zoomLinks.length<2){prev.hidden=true;next.hidden=true;}
-    dialog.append(bar,photo,controls);document.body.append(dialog);let index=0,origin=0;
+    stage.append(photo);dialog.append(bar,stage,controls);document.body.append(dialog);let index=0,origin=0;
     function display(n){
       index=(n+zoomLinks.length)%zoomLinks.length;const a=zoomLinks[index],title=$('img',a).alt;
+      const thumb=$('img',a);
+      photo.width=Number(thumb.getAttribute('width'));photo.height=Number(thumb.getAttribute('height'));
       photo.src=a.href;photo.alt=title;caption.textContent=title;counter.textContent=(index+1)+' / '+zoomLinks.length;
     }
     zoomLinks.forEach((a,i)=>a.addEventListener('click',e=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();origin=i;display(i);dialog.showModal();close.focus({preventScroll:true});}));
@@ -345,7 +349,7 @@
       const active=document.activeElement;
       if(active===document.body||active?.id==='main'||dialog.contains(active))zoomLinks[origin].focus({preventScroll:true});
     });
-    dialog.addEventListener('click',e=>{if(e.target===dialog){const b=dialog.getBoundingClientRect();if(e.clientX<b.left||e.clientX>b.right||e.clientY<b.top||e.clientY>b.bottom)dialog.close();}});
+    stage.addEventListener('click',e=>{if(e.target===stage)dialog.close();});
     prev.addEventListener('click',()=>display(index-1));next.addEventListener('click',()=>display(index+1));
     dialog.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();display(index+(e.key==='ArrowRight'?1:-1));}});
     let touchX=0,touchY=0;

@@ -17,7 +17,7 @@
     menu.setAttribute('aria-label', 'Закрыть меню');
   });
   document.addEventListener('click', event => {
-    if (!event.target.closest('header') || event.target.closest('nav a,.contact-magnet')) closeNav();
+    if (!event.target.closest('header') || event.target.closest('nav a,.contact-magnet,.header-phone')) closeNav();
   });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && nav.classList.contains('open')) closeNav(true);
@@ -25,7 +25,7 @@
   nav.addEventListener('focusout', e => {
     if (e.relatedTarget && !nav.contains(e.relatedTarget) && e.relatedTarget !== menu) closeNav();
   });
-  matchMedia('(min-width:851px)').addEventListener('change', () => closeNav());
+  matchMedia('(min-width:1101px)').addEventListener('change', () => closeNav());
 
   function positionEffect(el, paint) {
     if (!el) return;
@@ -34,7 +34,7 @@
     function reset() { if(frame) cancelAnimationFrame(frame); frame = 0; paint(0, 0); box = null; }
     el.addEventListener('pointerenter', () => { box = el.getBoundingClientRect(); });
     el.addEventListener('pointermove', event => {
-      if (motion.matches || (event.pointerType === 'touch' && !el.hasAttribute('data-hero-art'))) return;
+      if (motion.matches || event.pointerType === 'touch') return;
       box = box || el.getBoundingClientRect();
       x = Math.min(1, Math.max(-1, 2 * (event.clientX - box.left) / box.width - 1));
       y = Math.min(1, Math.max(-1, 2 * (event.clientY - box.top) / box.height - 1));
@@ -45,17 +45,13 @@
     motion.addEventListener('change', reset);
   }
   const set = (node, name, value) => node.style.setProperty(name, value);
-  const art = document.querySelector('[data-hero-art]');
-  positionEffect(art, (x,y) => {
-    set(art,'--hx',x*15+'px'); set(art,'--hy',y*8+'px'); set(art,'--twist',x*4.3+'deg');
-  });
   const magnet = document.querySelector('.contact-magnet');
   positionEffect(magnet,(x,y)=>{set(magnet,'--mx',x*3.2+'px');set(magnet,'--my',y*2.1+'px');});
   document.querySelectorAll('.feature-card,.project,.service-band,.contact-info,.section-head,.category-entry,.finder-box').forEach(el => {
     positionEffect(el,(x,y)=>{set(el,'--px',x*5+'px');set(el,'--py',y*4+'px');set(el,'--glint',(50+x*45)+'%');});
   });
   const study = document.querySelector('.pile-study');
-  if (art || study) {
+  if (study) {
     const parts = study ? Array.from(study.querySelectorAll('.pile')) : [];
     const present = new Set();
     let frame = 0;
@@ -63,10 +59,6 @@
     function scrollFrame() {
       frame = 0;
       if (document.hidden) return;
-      if (art && present.has(art)) {
-        const t=motion.matches?0:clamp(scrollY / Math.max(230,art.clientHeight));
-        set(art,'--descend',t*30+'px');set(art,'--clamp',t*19+'px');
-      }
       if (study && present.has(study)) {
         const box=study.getBoundingClientRect();
         const t=motion.matches?1:clamp((innerHeight-box.top)/(box.height+innerHeight*.34));
@@ -82,7 +74,7 @@
       entries.forEach(entry=>entry.isIntersecting?present.add(entry.target):present.delete(entry.target));
       schedule();
     },{rootMargin:'30px'});
-    [art,study].filter(Boolean).forEach(el=>observer.observe(el));
+    observer.observe(study);
     window.addEventListener('scroll',schedule,{passive:true});window.addEventListener('resize',schedule);
     document.addEventListener('visibilitychange',schedule);motion.addEventListener('change',schedule);
   }
@@ -99,6 +91,9 @@
     index = Math.max(0,Math.min(entries.length-1,i));
     const item=entries[index];
     if (!item) return;
+    image.width=item.width; image.height=item.height;
+    dialog.style.setProperty('--photo-ratio',item.width/item.height);
+    dialog.style.setProperty('--source-width',item.width+'px');
     image.src=root+item.local; image.alt=item.caption; title.textContent=item.caption;
     const full=dialog.querySelector('#light-full'), contextLink=dialog.querySelector('#light-context');
     full.href=root+item.local;contextLink.hidden=!item.contextUrl;
@@ -115,7 +110,7 @@
     entries=Array.from(new Set(ids)).map(id=>mediaMap.get(String(id))).filter(Boolean);
     const at=entries.findIndex(m=>String(m.id)===a.dataset.zoom);
     if(at<0)return;
-    event.preventDefault();opener=a;showPhoto(at);dialog.showModal();document.documentElement.classList.add('viewing-photo');
+    event.preventDefault();opener=a;showPhoto(at);dialog.showModal();fitLightbox();document.documentElement.classList.add('viewing-photo');
     dialog.querySelector('.light-close').focus();
   });
   prev.onclick=()=>showPhoto(index-1);next.onclick=()=>showPhoto(index+1);
@@ -123,11 +118,15 @@
     if(e.key==='ArrowRight'){e.preventDefault();showPhoto(index+1);}
     if(e.key==='ArrowLeft'){e.preventDefault();showPhoto(index-1);}
   });
-  dialog.addEventListener('click',e=>{
-    if(e.target!==dialog)return;
-    const b=dialog.getBoundingClientRect();
-    if(e.clientX<b.left||e.clientX>b.right||e.clientY<b.top||e.clientY>b.bottom)dialog.close();
-  });
+  dialog.addEventListener('click',e=>{ if(e.target===dialog) dialog.close(); });
+  const lightControls = [...dialog.querySelectorAll('.lightbar,.lighttools,.lightfoot')];
+  function fitLightbox() {
+    if (!dialog.open) return;
+    const height = lightControls.reduce((total, node) => total + node.getBoundingClientRect().height, 0);
+    dialog.style.setProperty('--light-controls', Math.ceil(height) + 'px');
+  }
+  const controlObserver = new ResizeObserver(fitLightbox);
+  lightControls.forEach(control => controlObserver.observe(control));
   let touchX,touchY;
   image.addEventListener('touchstart',e=>{touchX=e.touches[0].clientX;touchY=e.touches[0].clientY;},{passive:true});
   image.addEventListener('touchend',e=>{

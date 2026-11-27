@@ -11,11 +11,9 @@
       const fig=document.createElement('figure'),a=document.createElement('a'),img=document.createElement('img'),cap=document.createElement('figcaption');
       fig.className='gallery-item';fig.dataset.photo=String(m.is_photo);
       a.href=m.local;a.dataset.zoom=m.id;a.className='zoom';a.setAttribute('aria-label','Увеличить. '+m.caption);
-      img.src=m.thumb||m.local;img.width=m.width;img.height=m.height;img.alt=m.caption;img.loading='lazy';img.decoding='async';
+      img.src=m.local;img.width=m.width;img.height=m.height;img.alt=m.caption;img.loading='lazy';img.decoding='async';
       cap.textContent=m.caption;a.append(img);
-      const icon=document.createElement('span');icon.className='zoom-icon';icon.setAttribute('aria-hidden','true');
-      icon.innerHTML='<svg viewBox="0 0 20 20"><path d="M3 8V3h5m4 0h5v5M3 12v5h5m9-5v5h-5"/></svg>';
-      a.append(icon);fig.append(a,cap);batch.append(fig);
+      fig.append(a,cap);batch.append(fig);
     });
     shown=Math.min(shown+16,items.length);grid.append(batch);more.hidden=shown>=items.length;
     total.textContent='Показано '+shown+' из '+items.length;
