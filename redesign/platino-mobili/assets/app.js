@@ -12,7 +12,7 @@
   menu.addEventListener('click',e=>{if(e.target.closest('a'))showMenu(false)});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu.hidden)showMenu(false,true)});
   document.addEventListener('pointerdown',e=>{if(!menu.hidden&&!e.target.closest('.mast'))showMenu(false)});
-  matchMedia('(min-width:801px)').addEventListener('change',e=>{if(e.matches)showMenu(false)});
+  matchMedia('(min-width:1031px)').addEventListener('change',e=>{if(e.matches)showMenu(false)});
 
   const motion=matchMedia('(prefers-reduced-motion: reduce)'), fine=matchMedia('(hover:hover) and (pointer:fine)');
   function pointResponse(node,change,reset) {
@@ -45,17 +45,87 @@
   }
   const band=$('#material-study');
   if(band){
-    let scheduled=false,observed=false;
+    const wrap=$('.material-wrap',band), drawing=$('.strata-panel',band);
+    const pieces=Object.fromEntries($$('[data-part]',drawing).map(part=>[part.dataset.part,part]));
+    const steps=$$('.assembly-steps li',band);
+    let scheduled=false, nearby=true;
+    const clamp=n=>Math.max(0,Math.min(1,n));
+    function ease(value,from,to){
+      const t=clamp((value-from)/(to-from));
+      return t*t*(3-2*t);
+    }
+    function shift(name,x,y){
+      pieces[name].setAttribute('transform','translate('+x.toFixed(2)+' '+y.toFixed(2)+')');
+    }
     function paint(){
-      scheduled=false;if(!observed)return;
-      const rect=band.getBoundingClientRect();
-      const p=Math.min(1,Math.max(0,(innerHeight-rect.top)/(innerHeight*.53+rect.height*.45)));
-      band.style.setProperty('--spread',motion.matches?'0':(1-p).toFixed(4));
+      scheduled=false;
+      const still=motion.matches;
+      band.toggleAttribute('data-scrolling',!still);
+      const header=$('.mast').offsetHeight;
+      // Use the drawing's original position within the section, including while it is sticky.
+      const entry=innerHeight-drawing.offsetTop-Math.min(75,drawing.offsetHeight*.16);
+      const runway=Math.max(0,band.offsetHeight-wrap.offsetHeight);
+      const distance=Math.max(180,entry-header+runway*.86);
+      const p=still ? .43 : clamp((entry-band.getBoundingClientRect().top)/distance);
+      const build=1-ease(p,0,.36),insert=1-ease(p,.35,.69),seat=1-ease(p,.67,.99);
+      shift('base',-8*build,-8*build);
+      shift('back',11*build,-32*build);
+      shift('left',-29*build,-16*build);
+      shift('partition',8*build,-14*build);
+      shift('return',36*build,-12*build);
+      shift('front',-19*build,12*build);
+      shift('drawer',-61*insert,36*insert);
+      shift('counter',15*seat,-49*seat);
+      const active=p<.35?0:p<.69?1:2;
+      steps.forEach((step,i)=>{
+        if(!still && i===active)step.setAttribute('aria-current','step');
+        else step.removeAttribute('aria-current');
+      });
       band.dataset.progress=p.toFixed(4);
     }
-    const tick=()=>{if(observed&&!scheduled){scheduled=true;requestAnimationFrame(paint)}};
-    new IntersectionObserver(([entry])=>{observed=entry.isIntersecting;if(observed)tick()},{rootMargin:'12% 0px'}).observe(band);
-    addEventListener('scroll',tick,{passive:true});addEventListener('resize',tick);motion.addEventListener('change',tick);
+    function tick(){if(!scheduled){scheduled=true;requestAnimationFrame(paint)}}
+    new IntersectionObserver(([entry])=>{nearby=entry.isIntersecting;if(nearby)tick()},{rootMargin:'35% 0px'}).observe(band);
+    addEventListener('scroll',()=>{if(nearby&&!motion.matches)tick()},{passive:true});
+    addEventListener('resize',tick);motion.addEventListener('change',tick);
+    new ResizeObserver(tick).observe(wrap);
+    paint();
+  }
+
+  const viewer=$('.gallery-dialog');
+  if(viewer && typeof viewer.showModal==='function'){
+    const items=$$('.view-sample'),picture=$('.viewer-stage img',viewer);
+    const stage=$('.viewer-stage',viewer),close=$('.viewer-close',viewer);
+    const controls=$$('.viewer-controls button',viewer);
+    let current=0,opener=null,touch=null;
+    function show(index){
+      current=(index+items.length)%items.length;
+      const item=items[current];
+      picture.alt=$('img',item).alt;
+      picture.src=item.href;
+      $('.viewer-title',viewer).textContent=item.dataset.caption;
+      $('.viewer-count',viewer).textContent=(current+1)+' / '+items.length;
+    }
+    if(items.length<2)$('.viewer-controls',viewer).hidden=true;
+    items.forEach((item,i)=>item.addEventListener('click',e=>{
+      if(e.button!==0||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;
+      e.preventDefault();opener=item;show(i);viewer.showModal();close.focus({preventScroll:true});
+    }));
+    close.addEventListener('click',()=>viewer.close());
+    viewer.addEventListener('close',()=>{touch=null;opener?.focus({preventScroll:true})});
+    controls.forEach(button=>button.addEventListener('click',()=>show(current+Number(button.dataset.shift))));
+    viewer.addEventListener('keydown',e=>{
+      if(e.key==='ArrowRight'||e.key==='ArrowLeft'){
+        e.preventDefault();show(current+(e.key==='ArrowRight'?1:-1));
+      }
+    });
+    stage.addEventListener('touchstart',e=>{touch=e.touches.length===1?e.touches[0]:null},{passive:true});
+    stage.addEventListener('touchcancel',()=>{touch=null});
+    stage.addEventListener('touchend',e=>{
+      if(!touch||e.touches.length)return;
+      const end=e.changedTouches[0],dx=end.clientX-touch.clientX,dy=end.clientY-touch.clientY;
+      if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)*1.35)show(current+(dx<0?1:-1));
+      touch=null;
+    },{passive:true});
   }
   const search=$('#catalog-search');
   if(!search)return;

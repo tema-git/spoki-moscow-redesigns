@@ -102,7 +102,8 @@
   box(scene,-5.25,4,-3.22,5.6,8,.45,lightWall);
   for (let i=0;i<6;i++) box(scene,2.15+i*.48,3.7,-3.41,.032,7.4,.14,midWall);
   const sun=new T.DirectionalLight(0xffead0,3.2);sun.position.set(-3.9,6.8,4.5);sun.castShadow=true;scene.add(sun);
-  sun.shadow.mapSize.set(2048,2048);
+  const shadowResolution=viewport.clientWidth < 660 ? 1024 : 2048;
+  sun.shadow.mapSize.set(shadowResolution,shadowResolution);
   Object.assign(sun.shadow.camera,{left:-6,right:6,top:6,bottom:-5,near:.5,far:24});
   sun.shadow.normalBias=.017;sun.shadow.bias=-.0002;
   scene.add(new T.HemisphereLight(0xfff2dd,0x8e7760,1.0));
@@ -115,7 +116,15 @@
   shadow.rotation.x=-Math.PI/2;shadow.position.set(.02,.002,.04);group.add(shadow);
 
   box(group,0,.09,0,3.77,.16,1.17,bronzeDark);
-  box(group,-.30,.70,0,3.16,1.18,1.31,darkWood);
+  // Open cabinet cavities reveal the slides when a drawer travels forward.
+  box(group,-.43,.73,-.625,2.93,1.19,.064,darkWood);
+  box(group,-.43,.22,0,2.93,.085,1.27,darkWood);
+  const slideMetal=material('#8c806a',.36,.53);
+  const trayWood=material('#cdab7e',.55);
+  for(const x of [-1.86,-.55,.983]){
+    box(group,x,.77,0,.045,1.22,1.27,darkWood);
+    box(group,x,1.01,.04,.078,.034,1.18,slideMetal);
+  }
   // Thin end grain, drawer partitions, bevel catches and individual semicircular walnut reeds.
   const drawers=[];
   function reededFront(x,w,y,h,moving) {
@@ -126,9 +135,15 @@
     for(let i=0;i<n;i++){tr.position.set((i+.5)*w/n-w/2,0,.039);tr.updateMatrix();im.setMatrixAt(i,tr.matrix);}
     im.castShadow=im.receiveShadow=true;drawer.add(im);
     if(moving){
-      box(drawer,0,-h*.38,-.39,w-.032,.038,.79,darkWood);
+      const bottom=-h*.38;
+      box(drawer,0,bottom,-.48,w-.032,.038,.95,trayWood);
       for(const side of [-1,1])box(drawer,side*(w/2-.029),-.015,-.40,.043,h*.68,.79,wood);
-      box(drawer,0,.01,-.76,w-.05,h*.71,.033,wood);
+      box(drawer,0,.01,-.84,w-.05,h*.71,.033,wood);
+      for(const divider of [-.20,.16]){
+        box(drawer,divider*w,bottom+.10,-.43,.023,.18,.78,trayWood);
+      }
+      box(drawer,-.35*w,bottom+.10,-.48,.27*w,.18,.025,trayWood);
+      for(const side of [-1,1])box(drawer,side*(w/2-.014),bottom+.065,-.47,.024,.047,.86,slideMetal);
       drawers.push(drawer);
     }
   }
@@ -190,11 +205,12 @@
     const aspect=width/height;
     const viewH=Math.max(2.8,5.05/aspect);
     camera.left=-viewH*aspect/2;camera.right=viewH*aspect/2;camera.top=viewH/2;camera.bottom=-viewH/2;camera.updateProjectionMatrix();
-    const theta=.56+ax*.165+ap*.085;
-    camera.position.set(8.2*Math.sin(theta),3.51+ay*.33+ap*.46,8.2*Math.cos(theta));
-    camera.lookAt(0,1.23+ap*.09,0);
-    drawers[0].position.z=.67+ap*.53;
-    drawers[1].position.z=.67+ap*.19;
+    const theta=.56+ax*.27+ap*.12;
+    camera.position.set(8.2*Math.sin(theta),3.51+ay*.5+ap*1.65,8.2*Math.cos(theta));
+    camera.lookAt(0,1.23+ap*.025,.18*ap);
+    const drawerTravel=T.MathUtils.smoothstep(ap,0,.78);
+    drawers[0].position.z=.67+drawerTravel*.86;
+    drawers[1].position.z=.67+T.MathUtils.smoothstep(ap,.5,1)*.38;
     if(Math.abs(ap-shadowAt)>.009 || (ap<.001 && shadowAt!==0)){renderer.shadowMap.needsUpdate=true;shadowAt=ap<.001?0:ap}
     renderer.render(scene,camera);
     stage.dataset.angle=theta.toFixed(4);stage.dataset.open=ap.toFixed(4);
@@ -208,7 +224,9 @@
   }
   function scroll(){
     if(!visible)return;
-    const r=stage.getBoundingClientRect();prog=reduced.matches?0:Math.min(1,Math.max(0,(74-r.top)/(Math.max(230,r.height*.84))));
+    const r=stage.getBoundingClientRect();
+    const header=document.querySelector('.mast')?.offsetHeight || 0;
+    prog=reduced.matches ? 0 : Math.min(1,Math.max(0,(header-r.top)/Math.max(165,r.height*.55)));
     requestDraw();
   }
   stage.addEventListener('pointermove',e=>{
