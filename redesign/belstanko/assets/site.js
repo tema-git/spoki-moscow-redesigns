@@ -63,7 +63,7 @@
   menuBtn?.addEventListener('click',()=>toggleMenu(menu.hidden));
   document.addEventListener('keydown',ev=>{if(ev.key==='Escape' && !menu.hidden){ toggleMenu(false);menuBtn.focus(); }});
   document.addEventListener('click',ev=>{if(!menu.hidden && !ev.target.closest('header'))toggleMenu(false);});
-  matchMedia('(min-width:781px)').addEventListener('change',e=>{ if(e.matches)toggleMenu(false); });
+  matchMedia('(min-width:1001px)').addEventListener('change',e=>{ if(e.matches)toggleMenu(false); });
   // Subject and measurement marks follow inputs only while those sections are in view.
   const reduced=matchMedia('(prefers-reduced-motion: reduce)'), fine=matchMedia('(hover:hover) and (pointer:fine)');
   const hero=$('.hero'), figure=$('.hero-figure'), scene=$('.dimension-scene'), magnet=$('.contacts-btn');
@@ -79,6 +79,7 @@
     scrollFrame=0; if(reduced.matches)return;
     if(hero && live.has(hero)){
       const rect=hero.getBoundingClientRect(), p=Math.max(0,Math.min(1,(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--head'))-rect.top)/rect.height));
+      window.BelstankoLathe?.draw(hx,hy,p);
       figure.style.setProperty('--hx',(hx*14+p*9)+'px');figure.style.setProperty('--hy',(hy*8-p*15)+'px');figure.style.setProperty('--hr',(hx*5)+'deg');figure.style.setProperty('--hs',(-p*3+hx*.9)+'deg');
       figure.style.setProperty('--feed',(hx*22+p*49)+'px');figure.style.setProperty('--rise',(-(hx*22+p*49)*.115)+'px');
     }
@@ -120,7 +121,7 @@
   });
   $('[data-prev]',lightbox).addEventListener('click',()=>showPhoto(current-1));$('[data-next]',lightbox).addEventListener('click',()=>showPhoto(current+1));
   lightbox.addEventListener('keydown',ev=>{if(ev.key==='ArrowRight'){ev.preventDefault();showPhoto(current+1);}if(ev.key==='ArrowLeft'){ev.preventDefault();showPhoto(current-1);}});
-  $$('dialog').forEach(dialog=>{dialog.addEventListener('click',ev=>{if(ev.target.closest('[data-close]'))dialog.close();else if(ev.target===dialog){const b=dialog.getBoundingClientRect();if(ev.clientX<b.left||ev.clientX>b.right||ev.clientY<b.top||ev.clientY>b.bottom)dialog.close();}});});
+  $$('dialog').forEach(dialog=>{dialog.addEventListener('click',ev=>{if(ev.target.closest('[data-close]'))dialog.close();else if(ev.target===dialog){if(dialog===lightbox){dialog.close();return;}const b=dialog.getBoundingClientRect();if(ev.clientX<b.left||ev.clientX>b.right||ev.clientY<b.top||ev.clientY>b.bottom)dialog.close();}});});
   const normalize=s=>String(s||'').toLocaleLowerCase('ru').replace(/ё/g,'е').normalize('NFKC').replace(/[‐‑‒–—]/g,'-').replace(/\s+/g,' ').trim();
   function matches(p,text){const q=normalize(text).split(' ').filter(Boolean);const hay=normalize(p.name+' '+p.category);return q.every(w=>hay.includes(w));}
   const picker=$('#picker'), field=$('#picker-query');let choose=null,excluded='',limit=32;
@@ -199,7 +200,7 @@
       const items=all.filter(p=>matches(p,input.value));$('#search-count').textContent='Найдено позиций: '+items.length;
       $('#results').innerHTML=items.slice(0,count).map(p=>{
         const url=root+'products/'+p.id+'.html',sub=p.name===p.model?p.category:p.name.substring(p.model.length).trim();
-        return '<article class="card react"><a class="card-photo" aria-label="'+e(p.name)+'" href="'+url+'">'+(p.thumb?'<img loading="lazy" src="'+root+p.thumb+'" alt="">':'<div class="no-image">'+svg('metal')+'</div>')+'</a><div class="card-info"><a href="'+url+'"><h3>'+e(p.model)+'</h3><p>'+e(sub)+'</p></a><span class="pricing"><b>'+e(money(p.price))+'</b>'+(p.old?'<del>'+e(money(p.old))+'</del>':'')+'</span><button class="add-compare" type="button" data-compare="'+p.id+'">'+svg('compare')+'<span>Сравнить</span></button></div></article>';
+        return '<article class="card react"><a class="card-photo" style="'+e(p.photoGeometry)+'" aria-label="'+e(p.name)+'" href="'+url+'">'+(p.thumb?'<img loading="lazy" src="'+root+p.thumb+'" alt="">':'<div class="no-image">'+svg('metal')+'</div>')+'</a><div class="card-info"><a href="'+url+'"><h3>'+e(p.model)+'</h3><p>'+e(sub)+'</p></a><span class="pricing"><b>'+e(money(p.price))+'</b>'+(p.old?'<del>'+e(money(p.old))+'</del>':'')+'</span><button class="add-compare" type="button" data-compare="'+p.id+'">'+svg('compare')+'<span>Сравнить</span></button></div></article>';
       }).join('') || '<p>Попробуйте другой артикул или название.</p>';searchBtn.hidden=items.length<=count;refreshCompareControls();
     }
     input.addEventListener('input',()=>{count=24;renderResults();});
